@@ -2,11 +2,12 @@ const _ = require('lodash');
 const csv = require('csvtojson');
 const fs = require('fs');
 const moment = require('moment');
+const { performance } = require('perf_hooks');
 
 const startDate = moment('1880-1-1', 'YYYY-MM-DD');
-const endDate = moment('2018-1-1', 'YYYY-MM-DD');
+const endDate = moment();
 const intervalMillis = 100;
-const programDuration = moment.duration(3, 'minutes');
+const programDuration = moment.duration(30, 'minutes');
 const tickCount = programDuration.asMilliseconds() / intervalMillis;
 const scaledDuration = moment.duration(endDate.diff(startDate));
 const scaledInterval = moment.duration(scaledDuration.asMilliseconds() / tickCount, 'milliseconds');
@@ -28,35 +29,51 @@ const parseCsvFile = filepath =>
     .fromFile(filepath);
 
 
+const valToArgsDefault = val => [{ type: 'f', value: val[1] }];
+
 const processData = async () => {
   const dataSources = [
-    {
-      address: '/daily1',
-      dateFormat: '',
-      dataSource: dailyDatasource1,
-      startIndex: 0,
-      type: 'f',
-    },
-    {
-      address: '/weekly1',
-      dateFormat: '',
-      dataSource: weeklyDatasource1,
-      startIndex: 0,
-      type: 'f',
-    },
+    // {
+    //   address: '/daily1',
+    //   dateFormat: '',
+    //   dataSource: dailyDatasource1,
+    //   startIndex: 0,
+    //   type: 'f',
+    //   valToArgs: valToArgsDefault,
+    // },
+    // {
+    //   address: '/weekly1',
+    //   dateFormat: '',
+    //   dataSource: weeklyDatasource1,
+    //   startIndex: 0,
+    //   valToArgs: valToArgsDefault,
+    // },
     {
       address: '/co2',
       dateFormat: 'DD-MMM-YYYY hh:mm:ss',
       dataSource: await parseCsvFile('data/co2.csv'),
       startIndex: 0,
-      type: 'f',
+      valToArgs: valToArgsDefault,
     },
     {
-      address: '/temps',
+      address: '/temps', // temp anomaly
       dateFormat: 'YYYY',
       dataSource: await parseCsvFile('data/temps.csv'),
       startIndex: 0,
-      type: 'f',
+      valToArgs: valToArgsDefault,
+    },
+    {
+      address: '/storms',
+      dateFormat: 'YYYY-MM-DD HH:mm:ss',
+      dataSource: await parseCsvFile('data/Allstorms.ibtracs_all.v03r10.csv'),
+      startIndex: 0,
+      valToArgs: ([timestamp, name, lat, lon, wind, pressure]) => [ // TODO: -999 => null?
+        { type: 's', value: name },
+        { type: 'f', value: lat },
+        { type: 'f', value: lon },
+        { type: 'f', value: wind },
+        { type: 'f', value: pressure },
+      ],
     },
   ];
 
@@ -92,7 +109,7 @@ const processData = async () => {
               dateFormat,
               dataSource,
               startIndex,
-              type,
+              valToArgs,
             } = dataSourceConfig;
 
             const getTimeFromDatum = ([timestamp]) => moment(timestamp, dateFormat);
@@ -104,6 +121,23 @@ const processData = async () => {
               return false;
             } else {
 
+              let index = -1;
+              for (let i = startIndex; i < dataSource.length; ++i) {
+                const datum = dataSource[i];
+                const sampleTime = getTimeFromDatum(datum);
+
+                // dataSource is ordered. If nextTime is before sampleTime, it will be before all remaining samples
+                if (nextTime.isBefore(sampleTime)) {
+                  break;
+                }
+
+                if (time.isSameOrBefore(sampleTime) && nextTime.isAfter(sampleTime)) {
+                  index = i;
+                  break;
+                }
+              }
+
+              /*// this is inefficient because it can't exit early
               const index = _.findIndex(
                 dataSource,
                 (datum) => {
@@ -111,15 +145,15 @@ const processData = async () => {
                   return time.isSameOrBefore(sampleTime) && nextTime.isAfter(sampleTime);
                 },
                 startIndex,
-              );
+              );*/
 
               if (index === -1) {
                 return false;
               } else {
-                dataSources[dataSourceKey].startIndex = index;
+                dataSources[dataSourceKey].startIndex = index + 1;
                 return {
                   address,
-                  args: [{ type, value: dataSource[index][1] }]
+                  args: valToArgs(dataSource[index])
                 }
               }
             }
