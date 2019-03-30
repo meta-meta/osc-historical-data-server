@@ -62,6 +62,11 @@ const processData = async () => {
 
   const ticks = _.range(tickCount)
     .map(tick => {
+
+      if (tick % 100 === 0) {
+        console.log(`generating data - ${Math.trunc(100 * tick / tickCount)}% complete...`);
+      }
+
       const time = startDate.clone().add(scaledInterval.asSeconds() * tick, 'seconds');
       const nextTime = startDate.clone().add(scaledInterval.asSeconds() * (tick + 1), 'seconds');
 
