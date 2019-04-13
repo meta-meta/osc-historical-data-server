@@ -14,6 +14,15 @@ const udpPort = new osc.UDPPort({
 // console.log(new netmask.Netmask('10.0.0.0/12'))
 // console.log(new netmask.Netmask('192.168.1.0/24'))
 const broadcastIp = new netmask.Netmask('192.168.1.0/24').broadcast;
+// console.log(broadcastIp)
+// const broadcast = (obj) => udpPort.send(obj, 'localhost', 8000);
+// const broadcast = (obj) => {
+//   udpPort.send(obj, 'localhost', 8000);
+//   udpPort.send(obj, '169.254.60.112', 8000);
+//   udpPort.send(obj, '169.254.22.141', 8000);
+//   udpPort.send(obj, '169.254.63.21', 8000);
+//   udpPort.send(obj, '169.254.234.221', 8000);
+// };
 const broadcast = (obj) => udpPort.send(obj, broadcastIp, 8000);
 
 console.log('loading file...');
