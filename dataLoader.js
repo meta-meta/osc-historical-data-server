@@ -55,6 +55,9 @@ const processData = async () => {
       startIndex: 0,
       valToArgs: valToArgsDefault,
     },
+
+    // TODO: http://berkeleyearth.org/data/  temps
+
     {
       address: '/temps', // temp anomaly
       dateFormat: 'YYYY',
